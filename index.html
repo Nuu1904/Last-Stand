@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="LAST STAND - An intense 2D top-down zombie survival shooter. Upgrade, level up, complete objectives, and defeat massive bosses.">
+  <meta name="theme-color" content="#080a0f">
+  <title>LAST STAND | 2D Zombie Survival Shooter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/icons/favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="gameContainer" class="game-container">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Screen Overlays -->
+    <div id="damageOverlay" class="damage-overlay"></div>
+    <div id="shieldOverlay" class="shield-overlay"></div>
+    <div id="flashOverlay" class="flash-overlay"></div>
+    <div id="hitMarker" class="hit-marker"></div>
+
+    <!-- ==================== IN-GAME HUD ==================== -->
+    <div id="gameHud" class="game-hud hidden">
+
+      <!-- TOP BAR -->
+      <div class="hud-top-bar">
+
+        <!-- Left: Wave + Enemies -->
+        <div class="hud-stat-group">
+          <div class="hud-badge wave-badge">
+            <span class="badge-label">WAVE</span>
+            <span id="hudWaveNum" class="badge-val">1</span>
+          </div>
+          <div class="hud-badge enemies-badge">
+            <span class="badge-label">ENEMIES</span>
+            <span id="hudEnemiesLeft" class="badge-val">0</span>
+          </div>
+          <div id="waveTypeBadge" class="hud-badge wave-type-badge hidden">
+            <span id="waveTypeLabel" class="badge-val wave-type-val">HORDE</span>
+          </div>
+        </div>
+
+        <!-- Center: Boss Bar -->
+        <div id="bossHealthContainer" class="boss-health-container hidden">
+          <div class="boss-title-row">
+            <span class="boss-warning-icon">⚠</span>
+            <span id="bossName" class="boss-name">TITAN ABOMINATION</span>
+            <span id="bossHpPercent" class="boss-percent">100%</span>
+          </div>
+          <div class="boss-hp-track">
+            <div id="bossHpFill" class="boss-hp-fill" style="width:100%"></div>
+          </div>
+        </div>
+
+        <!-- Right: Coins + Kills + Radar + Pause -->
+        <div class="hud-stat-group right">
+          <div class="hud-badge coin-badge" id="hudCoinBadge">
+            <span class="coin-icon">🪙</span>
+            <span id="hudCoins" class="badge-val">0</span>
+            <span id="hudCoinDelta" class="coin-delta hidden">+0</span>
+          </div>
+          <div class="hud-badge kills-badge">
+            <span class="kill-icon">☠</span>
+            <span id="hudKills" class="badge-val">0</span>
+          </div>
+          <div class="mini-radar-wrapper">
+            <canvas id="radarCanvas" width="80" height="80"></canvas>
+          </div>
+          <button id="hudPauseBtn" class="hud-icon-btn" title="Pause (ESC)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- OBJECTIVE PANEL (shown when active) -->
+      <div id="objectivePanel" class="objective-panel hidden">
+        <div class="obj-header">
+          <span class="obj-tag">▶ OBJECTIVE</span>
+          <span id="objTimer" class="obj-timer"></span>
+        </div>
+        <div id="objTitle" class="obj-title">SUPPLY RUN</div>
+        <div id="objProgress" class="obj-progress">Crates: 0 / 3</div>
+      </div>
+
+      <!-- NOTIFICATION AREA: queued announcements anchored top-center, below HUD -->
+      <div id="notifArea" class="notif-area">
+        <div id="waveClearedBanner" class="wave-cleared-banner hidden">
+          <div class="wave-clear-title">SECTOR SECURED</div>
+          <div id="waveClearReward" class="wave-clear-reward">+250 BOUNTY</div>
+        </div>
+        <div id="comboBanner" class="combo-banner hidden">
+          <div id="comboCount" class="combo-count">DOUBLE KILL!</div>
+          <div id="comboSubtitle" class="combo-subtitle">+50 BONUS</div>
+        </div>
+        <div id="levelUpBanner" class="levelup-banner hidden">
+          <div class="levelup-title">⭐ LEVEL UP!</div>
+          <div id="levelUpNum" class="levelup-num">LEVEL 2</div>
+        </div>
+        <div id="bossIncomingBanner" class="boss-incoming-banner hidden">
+          <div class="bi-skull">☠</div>
+          <div class="bi-title">BOSS INCOMING</div>
+          <div id="bossIncomingName" class="bi-subtitle">THE ABOMINATION AWAKENS</div>
+        </div>
+      </div>
+
+      <!-- ACTIVE BUFFS -->
+      <div id="buffsContainer" class="buffs-container"></div>
+
+      <!-- BOTTOM HUD BAR -->
+      <div class="hud-bottom-bar">
+
+        <!-- VITALITY + XP MODULE -->
+        <div class="vitality-module">
+          <!-- Level Badge + HP -->
+          <div class="level-row">
+            <div class="level-badge">
+              <span class="level-label">LV</span>
+              <span id="hudLevel" class="level-num">1</span>
+            </div>
+            <div class="bar-container hp-container">
+              <div class="bar-meta">
+                <span class="bar-label"><span class="icon">♥</span> HEALTH</span>
+                <span id="hpText" class="bar-numbers">100 / 100</span>
+              </div>
+              <div class="bar-track">
+                <div id="hpFill" class="bar-fill hp-fill" style="width:100%"></div>
+              </div>
+            </div>
+          </div>
+          <!-- XP Bar -->
+          <div class="bar-container xp-container">
+            <div class="bar-meta">
+              <span class="bar-label"><span class="icon">⭐</span> XP</span>
+              <span id="xpText" class="bar-numbers">0 / 120</span>
+            </div>
+            <div class="bar-track">
+              <div id="xpFill" class="bar-fill xp-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <!-- Stamina Bar -->
+          <div class="bar-container stamina-container">
+            <div class="bar-meta">
+              <span class="bar-label"><span class="icon">⚡</span> STAMINA</span>
+              <span id="staminaText" class="bar-numbers">100%</span>
+            </div>
+            <div class="bar-track">
+              <div id="staminaFill" class="bar-fill stamina-fill" style="width:100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WEAPON DOCK -->
+        <div class="weapon-dock" id="weaponDock">
+          <div class="weapon-card active" data-weapon="pistol" id="wCard0">
+            <span class="key-bind">1</span>
+            <div class="weapon-icon-wrap"><span class="weapon-icon-symbol">🔫</span></div>
+            <div class="weapon-card-info">
+              <span class="weapon-name">PISTOL</span>
+              <span class="weapon-ammo-mini" id="miniAmmo0">12/∞</span>
+            </div>
+          </div>
+          <div class="weapon-card" data-weapon="shotgun" id="wCard1">
+            <span class="key-bind">2</span>
+            <div class="weapon-icon-wrap"><span class="weapon-icon-symbol">💥</span></div>
+            <div class="weapon-card-info">
+              <span class="weapon-name">SHOTGUN</span>
+              <span class="weapon-ammo-mini" id="miniAmmo1">6/36</span>
+            </div>
+          </div>
+          <div class="weapon-card" data-weapon="smg" id="wCard2">
+            <span class="key-bind">3</span>
+            <div class="weapon-icon-wrap"><span class="weapon-icon-symbol">⚡</span></div>
+            <div class="weapon-card-info">
+              <span class="weapon-name">SMG</span>
+              <span class="weapon-ammo-mini" id="miniAmmo2">35/140</span>
+            </div>
+          </div>
+          <div class="weapon-card" data-weapon="sniper" id="wCard3">
+            <span class="key-bind">4</span>
+            <div class="weapon-icon-wrap"><span class="weapon-icon-symbol">🎯</span></div>
+            <div class="weapon-card-info">
+              <span class="weapon-name">SNIPER</span>
+              <span class="weapon-ammo-mini" id="miniAmmo3">5/25</span>
+            </div>
+          </div>
+          <div class="weapon-card" data-weapon="grenade" id="wCard4">
+            <span class="key-bind">5</span>
+            <div class="weapon-icon-wrap"><span class="weapon-icon-symbol">💣</span></div>
+            <div class="weapon-card-info">
+              <span class="weapon-name">GRENADE</span>
+              <span class="weapon-ammo-mini" id="miniAmmo4">1/4</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AMMO + HEAT MODULE -->
+        <div class="ammo-module">
+          <div class="ammo-primary-readout">
+            <span id="activeWeaponChip" class="active-weapon-chip"><span id="activeWeaponIcon">🔫</span> <span id="activeWeaponName">PISTOL</span></span>
+            <span id="currentMag" class="ammo-mag-big">12</span>
+            <span class="ammo-slash">/</span>
+            <span id="currentReserve" class="ammo-reserve">∞</span>
+          </div>
+          <!-- SMG Heat Bar -->
+          <div id="heatBarWrap" class="heat-bar-wrap hidden">
+            <div class="heat-label-row">
+              <span class="heat-label">🌡 HEAT</span>
+              <span id="heatLabel" class="heat-status">OK</span>
+            </div>
+            <div class="bar-track">
+              <div id="heatFill" class="bar-fill heat-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <!-- Reload progress -->
+          <div id="reloadIndicator" class="reload-indicator hidden">
+            <div id="reloadProgress" class="reload-progress"></div>
+          </div>
+          <div id="reloadHint" class="reload-hint">PRESS <kbd>R</kbd> TO RELOAD</div>
+        </div>
+
+      </div><!-- end bottom bar -->
+    </div><!-- end gameHud -->
+
+    <!-- Portrait Orientation Warning Overlay -->
+    <div id="rotateDeviceOverlay" class="rotate-device-overlay hidden">
+      <div class="rotate-phone-box industrial-box">
+        <div class="rotate-phone-anim">
+          <div class="phone-icon-wrap">
+            <svg viewBox="0 0 64 64" class="phone-svg" width="64" height="64" fill="none" stroke="currentColor">
+              <rect x="20" y="8" width="24" height="48" rx="4" stroke-width="3" stroke="#00d2ff"/>
+              <circle cx="32" cy="50" r="2.5" fill="#00d2ff"/>
+              <line x1="28" y1="12" x2="36" y2="12" stroke="#00d2ff" stroke-width="2"/>
+            </svg>
+            <span class="rotate-arrow">↺</span>
+          </div>
+        </div>
+        <h2 class="rotate-title">PLEASE ROTATE YOUR DEVICE</h2>
+        <p class="rotate-desc">LAST STAND is optimized for landscape combat.<br>Turn your device horizontally to resume operations.</p>
+        <div class="rotate-badge">LANDSCAPE ORIENTATION REQUIRED</div>
+      </div>
+    </div>
+
+    <!-- ==================== MOBILE CONTROLS ==================== -->
+    <div id="mobileControls" class="mobile-controls hidden">
+      <!-- Left: Dynamic Movement Virtual Joystick -->
+      <div id="joystickZone" class="joystick-zone">
+        <div id="joystickBase" class="joystick-base">
+          <div class="joystick-crosshair-lines"></div>
+          <div id="joystickThumb" class="joystick-thumb"></div>
+        </div>
+      </div>
+
+      <!-- Right: Touch Aim Zone — disabled: FIRE button now handles aim+shoot -->
+      <div id="mobileAimZone" class="mobile-aim-zone" style="display:none;"></div>
+
+      <!-- Right: Ergonomic Action Buttons Arc -->
+      <div class="mobile-action-zone">
+        <button id="mobileSprintBtn" class="mobile-btn sprint-btn" title="Sprint (Shift)">
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">SPRINT</span>
+        </button>
+        <button id="mobileGrenadeBtn" class="mobile-btn grenade-btn" title="Throw Grenade (5)">
+          <span class="btn-icon">💣</span>
+          <span class="btn-text">GRENADE</span>
+          <span id="mobileGrenadeCount" class="btn-badge">1</span>
+        </button>
+        <button id="mobileReloadBtn" class="mobile-btn reload-btn" title="Reload (R)">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-text">RELOAD</span>
+        </button>
+        <button id="mobileSwapBtn" class="mobile-btn swap-btn" title="Next Weapon (1-5)">
+          <span class="btn-icon">⇄</span>
+          <span class="btn-text">SWAP</span>
+        </button>
+        <button id="mobileFireBtn" class="mobile-btn fire-btn" title="Fire Weapon / Drag to Aim">
+          <span class="btn-icon-fire">🎯</span>
+          <span class="btn-text-fire">FIRE</span>
+          <!-- Aim direction indicator -->
+          <span id="fireAimDot" class="fire-aim-dot" style="display:none;"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== MODALS & SCREENS ==================== -->
+
+    <!-- 0. ASSET PRELOADER SCREEN -->
+    <div id="assetLoadingScreen" class="loading-screen active">
+      <div class="loading-backdrop-grid"></div>
+      <div class="loading-card industrial-box">
+        <div class="warning-tape">TACTICAL SYSTEM · PRELOADING ASSETS</div>
+        <h1 class="game-title">LAST STAND</h1>
+        <p class="game-subtitle">SURVIVE THE NIGHT. PURGE THE CITY.</p>
+        <div class="loading-status-row">
+          <span id="loadingStatusText" class="loading-status-text">INITIALIZING COMBAT TELEMETRY...</span>
+          <span id="loadingPercentText" class="loading-percent-text">0%</span>
+        </div>
+        <div class="loading-bar-track">
+          <div id="loadingBarFill" class="loading-bar-fill" style="width: 0%"></div>
+        </div>
+        <div class="loading-footer-tip">OPTIMIZED FOR GITHUB PAGES · DESKTOP & MOBILE LANDSCAPE</div>
+      </div>
+    </div>
+
+    <!-- 1. MAIN MENU -->
+    <div id="mainMenuScreen" class="menu-screen hidden">
+      <div class="menu-backdrop-grid"></div>
+      <div class="menu-card industrial-box">
+        <div class="brand-header">
+          <div class="warning-tape">SURVIVOR PROTOCOL: ACTIVE</div>
+          <h1 class="game-title">LAST STAND</h1>
+          <p class="game-subtitle">SURVIVE THE NIGHT. PURGE THE CITY.</p>
+        </div>
+        <div class="stats-record-box">
+          <div class="stat-col"><span class="label">BEST WAVE</span><span id="recordWave" class="val">1</span></div>
+          <div class="stat-col"><span class="label">MOST KILLS</span><span id="recordKills" class="val">0</span></div>
+          <div class="stat-col"><span class="label">HIGH SCORE</span><span id="recordScore" class="val">0</span></div>
+        </div>
+        <div class="menu-buttons">
+          <button id="btnStartGame" class="btn-primary glow-red">
+            <span class="btn-text">ENTER BATTLEGROUND</span>
+            <span class="btn-subtext">WASD · MOUSE · SURVIVE</span>
+          </button>
+          <div class="btn-row">
+            <button id="btnMenuArmory" class="btn-secondary glow-gold">🛒 PERMANENT ARMORY</button>
+            <button id="btnHowToPlay" class="btn-secondary">📖 HOW TO PLAY</button>
+            <button id="btnSettings" class="btn-secondary">⚙ SETTINGS</button>
+          </div>
+        </div>
+        <div class="footer-version">
+          <div class="dev-credit">
+            Created &amp; Hosted by <strong>Ly Lindarina</strong><br>
+            GitHub: <a href="https://github.com/Nuu1904" target="_blank" rel="noopener noreferrer" class="dev-link">@Nuu1904</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. UPGRADE CHOICE MODAL (Wave Clear + Level Up) -->
+    <div id="upgradeChoiceModal" class="modal-overlay hidden">
+      <div class="upgrade-choice-container industrial-box">
+        <div id="upgradeChoiceHeader" class="upgrade-choice-header">
+          <span id="upgradeChoiceTitle" class="upgrade-choice-title">CHOOSE AN UPGRADE</span>
+          <p id="upgradeChoiceSubtitle" class="upgrade-choice-subtitle">Wave cleared — select a permanent tactical advantage</p>
+        </div>
+        <div class="upgrade-choice-cards" id="upgradeChoiceCards">
+          <!-- 3 cards injected by JS -->
+        </div>
+        <div class="upgrade-choice-footer">
+          <button id="btnSkipUpgrade" class="btn-secondary">SKIP →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2b. WAVE CLEARED INTERMISSION DIALOG -->
+    <div id="waveClearedModal" class="modal-overlay hidden">
+      <div class="wave-cleared-card industrial-box">
+        <div class="wc-header">
+          <span class="wc-badge">SECTOR SECURED</span>
+          <h2 id="wcWaveTitle" class="wc-title">WAVE 1 CLEARED</h2>
+          <div id="wcRewardVal" class="wc-reward">+130 🪙 BOUNTY EARNED</div>
+        </div>
+        <p class="wc-desc">Area stabilized. Tactical supply depot open for operations.</p>
+        <div class="wc-actions">
+          <button id="btnOpenArmoryWave" class="btn-primary glow-gold">
+            <span class="btn-icon">🛒</span> OPEN ARMORY
+          </button>
+          <button id="btnContinueWave" class="btn-secondary">
+            <span class="btn-icon">▶</span> CONTINUE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2c. FIELD ARMORY SHOP MODAL -->
+    <div id="armoryModal" class="modal-overlay hidden">
+      <div class="armory-container industrial-box">
+        <!-- Armory Header -->
+        <div class="armory-header">
+          <div class="armory-title-row">
+            <div class="armory-title-wrap">
+              <span class="armory-tag">SURVIVOR ARMORY</span>
+              <h2 class="armory-title">FIELD ARMORY &amp; SUPPLY DEPOT</h2>
+            </div>
+            <!-- Live Economy & Combat Readout -->
+            <div class="armory-stats-bar">
+              <div class="armory-stat-chip" title="Coins available for this run">
+                <span class="chip-icon">🪙</span>
+                <div class="chip-info">
+                  <span class="chip-label">RUN COINS</span>
+                  <span id="armoryRunCoins" class="chip-val">0</span>
+                </div>
+              </div>
+              <div class="armory-stat-chip" title="Permanent banked coins in base">
+                <span class="chip-icon">🏦</span>
+                <div class="chip-info">
+                  <span class="chip-label">BANKED</span>
+                  <span id="armoryBankedCoins" class="chip-val">0</span>
+                </div>
+              </div>
+              <div class="armory-stat-chip" id="armoryWaveChip">
+                <span class="chip-icon">🌊</span>
+                <div class="chip-info">
+                  <span class="chip-label">WAVE</span>
+                  <span id="armoryWaveNum" class="chip-val">1</span>
+                </div>
+              </div>
+              <div class="armory-stat-chip" id="armoryHpChip">
+                <span class="chip-icon">❤️</span>
+                <div class="chip-info">
+                  <span class="chip-label">HEALTH</span>
+                  <span id="armoryHpVal" class="chip-val">100/100</span>
+                </div>
+              </div>
+              <div class="armory-stat-chip" id="armoryWeaponChip">
+                <span class="chip-icon">🔫</span>
+                <div class="chip-info">
+                  <span class="chip-label">WEAPON</span>
+                  <span id="armoryWeaponVal" class="chip-val">PISTOL</span>
+                </div>
+              </div>
+            </div>
+            <button id="btnCloseArmoryX" class="close-btn" title="Close Armory">&times;</button>
+          </div>
+
+          <!-- Category Navigation Tabs -->
+          <div class="armory-tabs">
+            <button class="armory-tab-btn active" data-category="weapons">🔫 WEAPONS</button>
+            <button class="armory-tab-btn" data-category="player">👤 PLAYER</button>
+            <button class="armory-tab-btn" data-category="equipment">⚙️ EQUIPMENT</button>
+            <button class="armory-tab-btn" data-category="supplies">🎒 SUPPLIES</button>
+            <button class="armory-tab-btn" data-category="blackMarket">💀 BLACK MARKET</button>
+            <button class="armory-tab-btn" data-category="permanent">🏦 PERMANENT</button>
+          </div>
+        </div>
+
+        <!-- Armory Shop Content Body -->
+        <div class="armory-body">
+          <div id="armorySubheader" class="armory-subheader">
+            <span id="armoryCategoryTitle" class="armory-cat-title">WEAPON CALIBRATION</span>
+            <span id="armoryCategoryDesc" class="armory-cat-desc">Upgrade firepower, rate of fire, reload speed, and magazine capacities</span>
+          </div>
+          <div id="armoryCardsGrid" class="armory-cards-grid">
+            <!-- Dynamically populated by ArmoryManager in game.js -->
+          </div>
+        </div>
+
+        <!-- Armory Footer -->
+        <div class="armory-footer">
+          <div id="armoryNotification" class="armory-notification hidden"></div>
+          <button id="btnCloseArmory" class="btn-primary glow-red">RETURN TO COMBAT →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. PAUSE MODAL -->
+    <div id="pauseModal" class="modal-overlay hidden">
+      <div class="pause-card industrial-box">
+        <h2 class="pause-title">TACTICAL PAUSE</h2>
+        <p class="pause-desc">Operations halted. Breathe, soldier.</p>
+        <div class="pause-buttons">
+          <button id="btnResume" class="btn-primary glow-red">RESUME COMBAT (ESC)</button>
+          <button id="btnPauseArmory" class="btn-secondary glow-gold">🛒 FIELD ARMORY</button>
+          <button id="btnRestart" class="btn-secondary">RESTART MISSION</button>
+          <button id="btnPauseHowTo" class="btn-secondary">CONTROLS &amp; INTEL</button>
+          <button id="btnFullscreen" class="btn-secondary fullscreen-btn" title="Toggle Fullscreen">⛶ FULLSCREEN</button>
+          <button id="btnPauseMenu" class="btn-secondary">ABANDON TO MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. HOW TO PLAY MODAL -->
+    <div id="howToPlayModal" class="modal-overlay hidden">
+      <div class="intel-card industrial-box">
+        <div class="modal-header-row">
+          <h2 class="modal-title">TACTICAL SURVIVAL INTEL</h2>
+          <button id="btnCloseIntel" class="close-btn">&times;</button>
+        </div>
+        <div class="intel-tabs">
+          <button class="intel-tab-btn active" data-tab="tabControls">CONTROLS</button>
+          <button class="intel-tab-btn" data-tab="tabWeapons">ARSENAL</button>
+          <button class="intel-tab-btn" data-tab="tabZombies">THREATS</button>
+          <button class="intel-tab-btn" data-tab="tabObjectives">OBJECTIVES</button>
+          <button class="intel-tab-btn" data-tab="tabCredits">CREDITS</button>
+        </div>
+        <div class="intel-content-body">
+          <div id="tabControls" class="intel-tab-pane active">
+            <div class="intel-grid-2">
+              <div class="intel-box">
+                <h3>DESKTOP</h3>
+                <ul class="intel-list">
+                  <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Arrows — Move</li>
+                  <li><kbd>MOUSE</kbd> — Aim 360°</li>
+                  <li><kbd>LEFT CLICK</kbd> — Fire (Hold for auto)</li>
+                  <li><kbd>R</kbd> — Reload</li>
+                  <li><kbd>SHIFT</kbd> — Sprint</li>
+                  <li><kbd>1</kbd>–<kbd>5</kbd> / Scroll — Switch Weapon</li>
+                  <li><kbd>ESC</kbd> / <kbd>P</kbd> — Pause</li>
+                </ul>
+              </div>
+              <div class="intel-box">
+                <h3>MOBILE (LANDSCAPE)</h3>
+                <ul class="intel-list">
+                  <li><kbd>LEFT STICK</kbd> — Move 8-dir / 360° (Release to stop)</li>
+                  <li><kbd>RIGHT TOUCH</kbd> — Drag to Aim / Hold to Fire</li>
+                  <li><kbd>FIRE</kbd> — Primary Trigger</li>
+                  <li><kbd>RELOAD</kbd> — Reload Magazine</li>
+                  <li><kbd>SPRINT</kbd> — Toggle / Hold Tactical Sprint</li>
+                  <li><kbd>GRENADE</kbd> — Instant Quick-Throw</li>
+                  <li><kbd>SWAP</kbd> — Cycle Next Weapon</li>
+                  <li><kbd>PAUSE</kbd> (Top Right) — Tactical Pause</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div id="tabWeapons" class="intel-tab-pane">
+            <div class="arsenal-cards">
+              <div class="arsenal-item"><div class="w-head"><span class="w-icon">🔫</span><strong>PISTOL</strong></div><p>Balanced, accurate, infinite reserves. Reliable in all situations.</p></div>
+              <div class="arsenal-item"><div class="w-head"><span class="w-icon">💥</span><strong>SHOTGUN</strong></div><p>8-pellet spread. Lethal close range. Staggering knockback. Slow reload.</p></div>
+              <div class="arsenal-item"><div class="w-head"><span class="w-icon">⚡</span><strong>SMG</strong></div><p>High cyclic rate. Overheats under sustained fire. Cool before reusing.</p></div>
+              <div class="arsenal-item"><div class="w-head"><span class="w-icon">🎯</span><strong>SNIPER</strong></div><p>Extreme damage, armor-piercing. Massive headshot multiplier. Slow fire.</p></div>
+              <div class="arsenal-item"><div class="w-head"><span class="w-icon">💣</span><strong>GRENADE</strong></div><p>Timed fuse. Massive AoE and knockback. Clear a crowd in seconds.</p></div>
+            </div>
+          </div>
+          <div id="tabZombies" class="intel-tab-pane">
+            <div class="threat-grid">
+              <div class="threat-card walker"><div class="threat-badge">WALKER</div><p>Standard shambler. Swarms in hordes.</p></div>
+              <div class="threat-card runner"><div class="threat-badge">RUNNER</div><p>Sprints in erratic zig-zags. Fragile but fast.</p></div>
+              <div class="threat-card brute"><div class="threat-badge">BRUTE</div><p>Armored tank. Absorbs bullets. Crushes on contact.</p></div>
+              <div class="threat-card hunter"><div class="threat-badge">HUNTER</div><p>Flanks from cover, then lunges at extreme speed.</p></div>
+              <div class="threat-card spitter"><div class="threat-badge">SPITTER</div><p>Ranged acid attacker. Keeps distance. Creates toxic puddles.</p></div>
+              <div class="threat-card crawler"><div class="threat-badge">CRAWLER</div><p>Tiny. Very fast. Hard to see. Approaches from blind spots.</p></div>
+              <div class="threat-card boss"><div class="threat-badge">BOSS (Wave 5, 10…)</div><p>Massive HP. Multi-phase attacks: stomps, charge, summons.</p></div>
+            </div>
+          </div>
+          <div id="tabObjectives" class="intel-tab-pane">
+            <div class="powerup-grid">
+              <div class="power-card"><span class="p-icon">📦</span><strong>SUPPLY RUN:</strong> Collect 3 crates for bonus coins + XP.</div>
+              <div class="power-card"><span class="p-icon">🧍</span><strong>RESCUE:</strong> Keep an NPC alive for 45 seconds.</div>
+              <div class="power-card"><span class="p-icon">⚡</span><strong>GENERATOR:</strong> Reach and activate the generator (hold 2s).</div>
+              <div class="power-card"><span class="p-icon">🚁</span><strong>EXTRACTION:</strong> Reach the extraction zone within the time limit.</div>
+              <div class="power-card"><span class="p-icon">🛡</span><strong>DEFENSE:</strong> Hold your ground inside the marked zone for 40s.</div>
+            </div>
+          </div>
+          <div id="tabCredits" class="intel-tab-pane">
+            <div class="intel-box" style="text-align: center; padding: 24px 14px;">
+              <h3 style="color: var(--color-gold); font-size: 15px; margin-bottom: 12px; letter-spacing: 2px;">LAST STAND SURVIVAL PROTOCOL</h3>
+              <p style="font-size: 14px; color: #fff; margin-bottom: 10px;">
+                Created &amp; Hosted by <strong>Ly Lindarina</strong>
+              </p>
+              <p style="font-size: 13px; color: var(--color-text-dim);">
+                GitHub: <a href="https://github.com/Nuu1904" target="_blank" rel="noopener noreferrer" class="dev-link">@Nuu1904</a>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnIntelDismiss" class="btn-primary">UNDERSTOOD</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. SETTINGS MODAL -->
+    <div id="settingsModal" class="modal-overlay hidden">
+      <div class="settings-card industrial-box">
+        <div class="modal-header-row">
+          <h2 class="modal-title">OPERATIONAL SETTINGS</h2>
+          <button id="btnCloseSettings" class="close-btn">&times;</button>
+        </div>
+        <div class="settings-body">
+          <div class="setting-row">
+            <label for="masterVolRange">Master Volume</label>
+            <div class="range-wrap"><input type="range" id="masterVolRange" min="0" max="100" value="80"><span id="masterVolVal">80%</span></div>
+          </div>
+          <div class="setting-row">
+            <label for="sfxVolRange">SFX Volume</label>
+            <div class="range-wrap"><input type="range" id="sfxVolRange" min="0" max="100" value="90"><span id="sfxVolVal">90%</span></div>
+          </div>
+          <div class="setting-row">
+            <label for="screenShakeToggle">Screen Shake</label>
+            <input type="checkbox" id="screenShakeToggle" class="custom-toggle" checked>
+          </div>
+          <div class="setting-row">
+            <label for="bloodToggle">Blood Decals</label>
+            <input type="checkbox" id="bloodToggle" class="custom-toggle" checked>
+          </div>
+          <div class="setting-row">
+            <label for="flashLightToggle">Flashlight Effect</label>
+            <input type="checkbox" id="flashLightToggle" class="custom-toggle" checked>
+          </div>
+          <div class="setting-row">
+            <label>Display</label>
+            <button id="btnSettingsFullscreen" class="btn-secondary fullscreen-btn" title="Toggle Fullscreen">⛶ FULLSCREEN</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btnSaveSettings" class="btn-primary">CONFIRM</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. GAME OVER SCREEN -->
+    <div id="gameOverModal" class="modal-overlay hidden">
+      <div class="gameover-card industrial-box">
+        <div class="skull-banner">
+          <div class="skull-icon">☠</div>
+          <div class="skull-title">SURVIVOR ELIMINATED</div>
+          <div class="skull-subtitle">MISSION STATUS: CATASTROPHIC FAILURE</div>
+        </div>
+        <div class="after-action-report">
+          <div class="report-row highlight"><span>WAVE REACHED</span><strong id="goWave">1</strong></div>
+          <div class="report-row"><span>ZOMBIES KILLED</span><strong id="goKills">0</strong></div>
+          <div class="report-row"><span>COINS EARNED</span><strong id="goCoinsEarned" style="color: #ffca28;">0 🪙</strong></div>
+          <div class="report-row"><span>COINS SPENT</span><strong id="goCoinsSpent" style="color: #ff5252;">0 🪙</strong></div>
+          <div class="report-row highlight"><span>BANKED COINS</span><strong id="goBankedCoins" style="color: #00d2ff;">0 🏦</strong></div>
+          <div class="report-row"><span>PERSONAL BEST WAVE</span><strong id="goBestWave">1</strong></div>
+          <div class="report-row"><span>OVERALL SCORE</span><strong id="goScore" class="score-highlight">0</strong></div>
+        </div>
+        <div id="newRecordNotice" class="new-record-banner hidden">★ NEW PERSONAL RECORD ★</div>
+        <div class="gameover-buttons">
+          <button id="btnPlayAgain" class="btn-primary glow-red">DEPLOY AGAIN</button>
+          <button id="btnGameOverArmory" class="btn-secondary glow-gold">🛒 PERMANENT ARMORY</button>
+          <button id="btnReturnMenu" class="btn-secondary">RETURN TO BASE</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end gameContainer -->
+  <script src="game.js"></script>
+</body>
+</html>
